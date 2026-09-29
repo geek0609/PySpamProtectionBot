@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spb"
+version = "0.1.0"
+description = "Telegram spam-protection bot backed by the Open Federated Database specification."
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.13"
+dependencies = [
+    "cachetools>=5",
+    "httpx>=0.27",
+    "kurigram>=2.2.26",
+    "pyfederation>=0.1",
+    "PyYAML>=6",
+]
+
+[dependency-groups]
+dev = [
+    "anyio>=4",
+    "mypy>=1.10",
+    "pytest>=8",
+    "respx>=0.21",
+    "ruff>=0.5",
+    "types-cachetools",
+    "types-PyYAML",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spb"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "I", "UP", "B", "SIM", "RUF", "C4", "PIE", "RET", "G", "LOG", "PT", "PTH", "FLY",
+    "FURB", "RSE", "ERA", "ISC", "T20", "DTZ", "PLE", "PLW", "PLC", "ICN", "YTT", "SLOT",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Command-line entry points report to the terminal.
+"src/spb/main.py" = ["T20"]
+
+[tool.mypy]
+strict = true
+# Values read from kurigram objects are untyped (see below), and returning them is expected.
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+# kurigram annotates nearly every Telegram field as optional, including the ones Telegram always
+# sends, so its objects are checked as untyped.
+module = ["pyrogram", "pyrogram.*"]
+follow_imports = "skip"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
