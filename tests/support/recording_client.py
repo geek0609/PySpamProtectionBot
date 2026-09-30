@@ -1,11 +1,14 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from pyrogram.enums import ChatType
 from pyrogram.types import Chat, Message
 
 from tests.support import updates
+
+_GENERATORS = {"get_chat_members"}
+"""Methods that yield their answers one by one, like the Telegram methods that page."""
 
 
 @dataclass(frozen=True)
@@ -18,9 +21,9 @@ class Call:
 class RecordingClient:
     """Stands in for the Telegram client, recording every call a handler makes.
 
-    A method answers what the test set with respond(); otherwise methods that send or forward
-    answer with a message numbered in calling order, so a caller can reply to what it sent, and
-    every other method answers True.
+    A method answers what the test set with respond(), a paging method yielding it item by item;
+    otherwise methods that send or forward answer with a message numbered in calling order, so a
+    caller can reply to what it sent, and every other method answers True.
     """
 
     def __init__(self) -> None:
@@ -31,7 +34,16 @@ class RecordingClient:
         """Makes a method answer the given value from now on."""
         self._answers[method] = answer
 
-    def __getattr__(self, method: str) -> Callable[..., Awaitable[Any]]:
+    def __getattr__(self, method: str) -> Callable[..., Any]:
+        if method in _GENERATORS:
+
+            async def generate(*args: Any, **kwargs: Any) -> AsyncIterator[Any]:
+                self.calls.append(Call(method, args, kwargs))
+                for item in cast(list[Any], self._answers.get(method, [])):
+                    yield item
+
+            return generate
+
         async def call(*args: Any, **kwargs: Any) -> Any:
             self.calls.append(Call(method, args, kwargs))
             if method in self._answers:
