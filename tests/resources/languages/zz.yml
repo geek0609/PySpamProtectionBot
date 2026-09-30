@@ -1,0 +1,11 @@
+# A fixture language, present only in the tests.
+#
+# It exists to prove that adding a translation file is all it takes to add a language: nothing in
+# the code mentions "zz", yet the manager must discover it, read what it calls itself, and offer it.
+localization_properties:
+  name: "Zzyzx"
+  emoji: "\U0001F9EA"
+
+general:
+  "yes": "Aye"
+  cancel: "Nope"
