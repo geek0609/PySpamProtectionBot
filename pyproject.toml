@@ -17,6 +17,9 @@ dependencies = [
     "PyYAML>=6",
 ]
 
+[project.scripts]
+spb = "spb.main:main"
+
 [dependency-groups]
 dev = [
     "anyio>=4",
