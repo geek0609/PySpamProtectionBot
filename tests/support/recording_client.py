@@ -19,7 +19,7 @@ class RecordingClient:
     """Stands in for the Telegram client, recording every call a handler makes.
 
     A method answers what the test set with respond(); otherwise methods that send or forward
-    answer with a message numbered in sending order, so a caller can reply to what it sent, and
+    answer with a message numbered in calling order, so a caller can reply to what it sent, and
     every other method answers True.
     """
 
@@ -39,7 +39,9 @@ class RecordingClient:
             if method.startswith(("send_", "forward_")):
                 chat_id = kwargs.get("chat_id", args[0] if args else 0)
                 chat = Chat(id=chat_id, type=ChatType.PRIVATE)
-                return Message(id=len(self.calls), date=updates.DATE, chat=chat)
+                sent = Message(id=len(self.calls), date=updates.DATE, chat=chat)
+                # Like Telegram, several forwarded messages come back as a list.
+                return [sent] if method == "forward_messages" else sent
             return True
 
         return call
