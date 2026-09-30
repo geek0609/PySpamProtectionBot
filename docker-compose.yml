@@ -1,0 +1,159 @@
+# SpamProtectionBot + a self-hosted Federation server
+#
+# This spins up FederationLib (https://github.com/nosial/FederationLib) with its required MariaDB
+# database and its optional (but recommended) Redis cache, then the bot itself, wired to reach it
+# over the internal network at http://federation:7000/.
+#
+# Before starting:
+#   1. cp configuration.sample.yml configuration.yml
+#   2. Edit configuration.yml: set bot.name, bot.api_key, bot.api_id and bot.api_hash, and
+#      under federation set endpoint: "http://federation:7000/"
+#   3. Change FEDERATION_ACCESS_TOKEN below to your own value. It is FederationLib's master
+#      operator token, used for server administration, not by the bot.
+#
+# The bot starts fine with no federation.access_token of its own (anonymous access). To run it
+# authenticated instead, create a dedicated operator with client permissions (see
+# `docker compose exec federation federationlib create-operator --help`), put that operator's
+# token in configuration.yml's federation.access_token, then restart the bot service. Never reuse
+# FederationLib's master token for the bot itself.
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      additional_contexts:
+        pyfederation: ../PyFederation
+      args:
+        BUILD_DATE: ${BUILD_DATE:-}
+        REVISION: ${GIT_COMMIT:-}
+        VERSION: ${VERSION:-0.1.0}
+    container_name: spam-protection-bot
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    # Where the bot reads its configuration and keeps its database, inside the container. These are
+    # the image's defaults; change them together with the volume mounts below.
+    environment:
+      SPB_CONFIG: /app/configuration.yml
+      SPB_DATABASE: /data/database.db
+    depends_on:
+      federation:
+        condition: service_healthy
+    volumes:
+      - ./configuration.yml:/app/configuration.yml:ro
+      - spb-data:/data
+    networks:
+      - internal_network
+
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  federation:
+    image: ghcr.io/nosial/federationlib:latest
+    container_name: spb-federation
+    restart: unless-stopped
+    ports:
+      - "${FEDERATION_PORT:-7000}:7000"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - federation_uploads:/var/www/uploads
+    environment:
+      - FEDERATION_NAME=${FEDERATION_NAME:-Federation Server}
+      - FEDERATION_ACCESS_TOKEN=${FEDERATION_ACCESS_TOKEN:-abcdefghijklmnopqrstuvwxyz123456} # CHANGE THIS!!!
+      - FEDERATION_DATABASE_HOST=mariadb
+      - FEDERATION_DATABASE_PORT=3306
+      - FEDERATION_DATABASE_USERNAME=${MYSQL_USER:-federation}
+      - FEDERATION_DATABASE_PASSWORD=${MYSQL_PASSWORD:-federation}
+      - FEDERATION_DATABASE_NAME=${MYSQL_DATABASE:-federation}
+      - FEDERATION_REDIS_ENABLED=true
+      - FEDERATION_REDIS_HOST=redis
+      - FEDERATION_REDIS_PORT=6379
+    networks:
+      - internal_network
+
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+    # Overrides the image's own HEALTHCHECK, which also probes a BayesianServer sidecar and
+    # LogLib2Server that this compose file does not run and would otherwise never turn healthy.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  mariadb:
+    image: mariadb:10.5
+    container_name: spb-federation-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-federation_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-federation}
+      MYSQL_USER: ${MYSQL_USER:-federation}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-federation}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - internal_network
+    expose:
+      - "3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "mariadb", "-u", "${MYSQL_USER:-federation}", "-p${MYSQL_PASSWORD:-federation}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  redis:
+    image: redis:alpine
+    container_name: spb-federation-redis
+    restart: unless-stopped
+    command: redis-server
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal_network
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  spb-data:
+    driver: local
+  federation_uploads:
+    driver: local
+  mariadb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  internal_network:
+    driver: bridge
+    name: spb_federation_network

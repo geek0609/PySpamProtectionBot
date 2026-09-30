@@ -1,0 +1,61 @@
+# SpamProtectionBot only, connected to a remote Federation server
+#
+# Unlike docker-compose.yml, this does not host a Federation server, database, or cache: the bot
+# connects to an existing Federation server over the internet (or your own network).
+#
+# Before starting:
+#   1. cp configuration.sample.yml configuration.yml
+#   2. Edit configuration.yml: set bot.name, bot.api_key, bot.api_id and bot.api_hash, and
+#      under federation set endpoint to the remote server's base URL, e.g.
+#      "https://federation.example.com/".
+#      Prefer https for a server reached over the internet: the access token is sent with every
+#      request.
+#   3. Optionally set federation.access_token to an operator token issued by that server's
+#      administrator. Without one the bot runs anonymously, and features the server reserves for
+#      authenticated clients (publishing entities, submitting reports) are skipped.
+#
+# Start it with:
+#   docker compose -f docker-compose.instance.yml up -d --build
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      additional_contexts:
+        pyfederation: ../PyFederation
+      args:
+        BUILD_DATE: ${BUILD_DATE:-}
+        REVISION: ${GIT_COMMIT:-}
+        VERSION: ${VERSION:-0.1.0}
+    container_name: spam-protection-bot
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    # Where the bot reads its configuration and keeps its database, inside the container. These are
+    # the image's defaults; change them together with the volume mounts below.
+    environment:
+      SPB_CONFIG: /app/configuration.yml
+      SPB_DATABASE: /data/database.db
+    volumes:
+      - ./configuration.yml:/app/configuration.yml:ro
+      - spb-data:/data
+
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+volumes:
+  spb-data:
+    driver: local
