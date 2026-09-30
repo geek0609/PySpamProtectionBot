@@ -1,0 +1,58 @@
+# SpamProtectionBot configuration
+#
+# Copy this file to configuration.yml, fill in your values, and run:
+#   spb
+#
+# Other locations are given on the command line:
+#   spb --config /etc/spb/configuration.yml --database /var/lib/spb/database.db
+
+bot:
+  # Bot display name, used in the /start greeting (required)
+  name: SpamProtectionBot
+
+  # Telegram bot API key issued by BotFather (required)
+  api_key: "123456789:REPLACE-WITH-YOUR-OWN-BOT-TOKEN"
+
+  # Telegram API ID and hash issued at https://my.telegram.org, used to connect to Telegram over
+  # MTProto (required)
+  api_id: 12345
+  api_hash: "replace-with-your-own-api-hash"
+
+  # Use the Telegram test server instead of the production one (optional)
+  test_server: false
+
+  # Concurrent tasks processing incoming updates (optional; defaults to the core count)
+  worker_threads: 4
+
+  # Maximum number of pending updates before surplus updates are dropped (optional)
+  queue_capacity: 1024
+
+  # Seconds between checks for newly assigned, open Federation reports (optional)
+  notification_interval_seconds: 60
+
+  # Default language code for user-facing text (optional; defaults to en)
+  default_language: en
+
+  # Default privacy setting for newly registered chats. When enabled, optional identity and
+  # metadata fields are omitted from Federation requests (optional; defaults to false).
+  privacy_mode: false
+
+  # How long shutdown waits for in-flight updates to finish before the queue is abandoned, in
+  # seconds (optional; defaults to 30).
+  shutdown_timeout_seconds: 30
+
+# Federation server connection parameters (optional section; when omitted, the bot runs
+# without Federation support)
+federation:
+  # Base URL of the Federation server (required when the section is present)
+  endpoint: "http://127.0.0.1:7000/"
+
+  # Access token for API authentication (optional; anonymous access when omitted). A token that
+  # does not carry client permissions on the server is treated the same as no token at all.
+  access_token: "replace-with-your-own-access-token"
+
+  # Base URL of a Federation Web Application (FederationWeb) instance serving the same Federation
+  # server (optional). When set, messages that display a report, evidence, entity or blacklist
+  # record carry a button opening it in the web application. Must be a public http(s) URL, since
+  # Telegram rejects messages whose button URL points at localhost or a private address.
+  web_application_endpoint: "https://federation.example.com/"
