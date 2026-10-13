@@ -22,7 +22,7 @@ FROM python:3.13-alpine
 
 ARG BUILD_DATE
 ARG REVISION
-ARG VERSION=0.1.0
+ARG VERSION=1.0.0
 
 LABEL org.opencontainers.image.title="SpamProtectionBot" \
       org.opencontainers.image.description="Telegram spam-protection bot backed by the Open Federated Database specification" \

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "spb"
-version = "0.1.0"
+version = "1.0.0"
 description = "Telegram spam-protection bot backed by the Open Federated Database specification."
 license = "MIT"
 license-files = ["LICENSE"]
@@ -13,7 +13,7 @@ dependencies = [
     "cachetools>=5",
     "httpx>=0.27",
     "kurigram>=2.2.26",
-    "pyfederation>=0.1",
+    "pyfederation>=1.0,<2",
     "PyYAML>=6",
 ]
 
