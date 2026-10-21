@@ -412,7 +412,8 @@ authentication:
   permission_client: "Client: {0}"
   permission_operator: "Operator Administration: {0}"
   permission_management: "Server Management: {0}"
-  permission_auto_assign: "Auto-assign: {0}"
+  permission_auto_assign: "Auto-assign reports: {0}"
+  permission_auto_assign_automated: "Auto-assign automated reports: {0}"
 
 ping:
   bot_status: "<b>Status:</b> <code>{0}</code>\n"

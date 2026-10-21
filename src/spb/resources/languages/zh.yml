@@ -412,7 +412,8 @@ authentication:
   permission_client: "客户端：{0}"
   permission_operator: "操作员管理：{0}"
   permission_management: "服务器管理：{0}"
-  permission_auto_assign: "自动分配：{0}"
+  permission_auto_assign: "自动分配举报：{0}"
+  permission_auto_assign_automated: "自动分配自动化举报：{0}"
 
 ping:
   bot_status: "<b>状态：</b> <code>{0}</code>\n"

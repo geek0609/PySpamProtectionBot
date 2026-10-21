@@ -412,7 +412,8 @@ authentication:
   permission_client: "Клиент: {0}"
   permission_operator: "Администрирование операторов: {0}"
   permission_management: "Управление сервером: {0}"
-  permission_auto_assign: "Автоназначение: {0}"
+  permission_auto_assign: "Автоназначение жалоб: {0}"
+  permission_auto_assign_automated: "Автоназначение автоматических жалоб: {0}"
 
 ping:
   bot_status: "<b>Статус:</b> <code>{0}</code>\n"

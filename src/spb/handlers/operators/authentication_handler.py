@@ -203,6 +203,13 @@ def _operator_info(context: HandlerContext, lang: Language, operator: OperatorRe
             "permission_auto_assign",
             permission(operator.auto_assign_reports),
         )
+        + "\n"
+        + lm.get(
+            lang,
+            "authentication",
+            "permission_auto_assign_automated",
+            permission(operator.auto_assign_automated_reports),
+        )
     )
 
 
