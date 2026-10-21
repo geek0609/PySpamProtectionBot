@@ -51,7 +51,7 @@ async def test_with_scanning_off_the_content_is_never_sent_but_the_sender_is_que
     requests = await recommend(tmp_path, respx_mock, configuration)
 
     assert not any(SECRET in request for request in requests), requests
-    assert any("99@telegram.org" in request for request in requests), requests
+    assert any("/entities/99%40telegram.org/query" in request for request in requests), requests
 
 
 @pytest.mark.parametrize("behavior", BEHAVIORS)

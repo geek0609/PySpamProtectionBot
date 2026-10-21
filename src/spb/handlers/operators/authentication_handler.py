@@ -180,24 +180,29 @@ def _operator_info(context: HandlerContext, lang: Language, operator: OperatorRe
         + "\n\n"
         + lm.get(lang, "authentication", "permissions_header")
         + lm.get(
-            lang, "authentication", "permission_client", permission(operator.client_permissions)
+            lang, "authentication", "permission_client", permission(operator.permissions.client)
         )
         + "\n"
         + lm.get(
             lang,
             "authentication",
             "permission_operator",
-            permission(operator.operator_permissions),
+            permission(operator.permissions.operator),
         )
         + "\n"
         + lm.get(
             lang,
             "authentication",
             "permission_management",
-            permission(operator.management_permissions),
+            permission(operator.permissions.management),
         )
         + "\n"
-        + lm.get(lang, "authentication", "permission_auto_assign", permission(operator.auto_assign))
+        + lm.get(
+            lang,
+            "authentication",
+            "permission_auto_assign",
+            permission(operator.auto_assign_reports),
+        )
     )
 
 

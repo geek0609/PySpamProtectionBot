@@ -130,9 +130,9 @@ def _permission_summary(context: HandlerContext, lang: Language, operator: Opera
     granted = [
         lm.get(lang, "ping", key)
         for key, held in (
-            ("permission_client", operator.client_permissions),
-            ("permission_management", operator.management_permissions),
-            ("permission_operator", operator.operator_permissions),
+            ("permission_client", operator.permissions.client),
+            ("permission_management", operator.permissions.management),
+            ("permission_operator", operator.permissions.operator),
         )
         if held
     ]

@@ -13,7 +13,7 @@ dependencies = [
     "cachetools>=5",
     "httpx>=0.27",
     "kurigram>=2.2.26",
-    "pyfederation>=1.0,<2",
+    "pyfederation>=2.0",
     "PyYAML>=6",
 ]
 

@@ -96,10 +96,12 @@ async def context(
             "uuid": "0192aaaa-0000-7000-8000-000000000001",
             "name": "bot",
             "disabled": False,
-            "client_permissions": True,
-            "management_permissions": False,
-            "operator_permissions": False,
-            "auto_assign": False,
+            "permissions": {"client": True, "management": False, "operator": False},
+            "configuration": {
+                "auto_assign_reports": False,
+                "auto_assign_automated_reports": False,
+                "is_bot": False,
+            },
             "created": 1_700_000_000,
             "updated": 1_700_000_000,
         }

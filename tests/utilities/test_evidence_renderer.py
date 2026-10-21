@@ -8,6 +8,7 @@ EVIDENCE = {
     "entity": "entity-uuid",
     "operator": "operator-uuid",
     "confidential": False,
+    "automated": False,
     "text_content": "buy <now>",
     "tag": "scan",
     "classification_flag": "MALICIOUS",

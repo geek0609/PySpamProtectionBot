@@ -21,10 +21,12 @@ OPERATOR = {
     "uuid": OPERATOR_UUID,
     "name": "alice",
     "disabled": False,
-    "client_permissions": True,
-    "management_permissions": False,
-    "operator_permissions": True,
-    "auto_assign": False,
+    "permissions": {"client": True, "management": False, "operator": True},
+    "configuration": {
+        "auto_assign_reports": False,
+        "auto_assign_automated_reports": False,
+        "is_bot": False,
+    },
     "created": 1_700_000_000,
     "updated": 1_700_000_000,
 }

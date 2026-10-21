@@ -220,12 +220,10 @@ class Main:
     async def _authenticate_federation(self, service: FederationService, retrying: bool) -> None:
         """Confirms the bot's own access token carries client permissions, logging the outcome.
 
-        The server holds an authenticated-but-unprivileged token to a stricter standard than no
-        token at all: several calls an anonymous client may be allowed are refused outright to one
-        that identifies an operator without client permissions. FederationService.authenticate()
-        therefore discards a token that does not clear that bar, or that the server rejects, and
-        the bot is treated exactly like a host that never configured one. A failure that says
-        nothing about the token leaves authentication pending.
+        Every write the bot makes as itself requires client permissions, so a token without them,
+        or one the server rejects, is of no use to the bot. FederationService.authenticate()
+        therefore discards it, and the bot is treated exactly like a host that never configured
+        one. A failure that says nothing about the token leaves authentication pending.
 
         Args:
             service: The service to authenticate.

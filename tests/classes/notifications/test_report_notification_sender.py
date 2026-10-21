@@ -57,6 +57,7 @@ async def test_the_report_is_followed_by_its_evidence(
         "entity": "entity-uuid",
         "operator": "operator-uuid",
         "confidential": False,
+        "automated": False,
         "created": 1_700_000_000,
         "updated": 0,
     }
