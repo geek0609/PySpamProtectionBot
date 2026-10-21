@@ -26,6 +26,9 @@ log = logging.getLogger(__name__)
 FEDERATION_AUTHENTICATION_RETRY = 30
 """Seconds between attempts to authenticate with a Federation server that has not answered yet."""
 
+SUPPORTED_FEDERATION_API_MAJOR_VERSION = 2
+"""The major version of OFD the bot implements."""
+
 
 class Main:
     """The running bot: the database, the Federation and Telegram connections, the dispatcher and
@@ -187,6 +190,13 @@ class Main:
             information.known_entities,
             information.blacklist_records,
         )
+        if information.api_major_version != SUPPORTED_FEDERATION_API_MAJOR_VERSION:
+            log.warning(
+                "Federation server reports API version '%s', but this bot implements OFD %d.x; "
+                "requests may fail or be misread",
+                information.api_version,
+                SUPPORTED_FEDERATION_API_MAJOR_VERSION,
+            )
 
         access_token = configuration.federation_access_token
         if access_token is None or not access_token.strip():
