@@ -54,10 +54,13 @@ class FederationService:
     call and is unaffected by the bot's own authentication state.
 
     Only a definitive answer about the token settles it: a token the server rejects, or one that
-    identifies an operator without client permissions, is discarded and the service carries on as an
-    anonymous client. A server that is unreachable or failing says nothing about the token, so it is
-    kept and authentication stays pending (see is_authentication_pending) until a later
-    authenticate() gets an answer.
+    identifies a disabled operator or one without client permissions, is discarded and the service
+    carries on as an anonymous client. A server that is unreachable or failing says nothing about
+    the token, so it is kept and authentication stays pending (see is_authentication_pending) until
+    a later authenticate() gets an answer.
+
+    The bot's operator must be a bot (is_bot), so that the evidence and reports it submits are
+    marked automated; authenticate() configures it as one if it is not yet.
     """
 
     def __init__(self, endpoint: str | None, access_token: str | None = None) -> None:
@@ -130,10 +133,12 @@ class FederationService:
         """Identifies the operator the bot's own access token belongs to, and records whether it
         grants client permissions.
 
-        A token the server rejects or that lacks client permissions is discarded, and every later
-        call is made anonymously. Any other failure leaves the token in place and authentication
-        pending, so a server that was down when this was called can be authenticated against once
-        it is back.
+        A token the server rejects, or that belongs to a disabled operator or one without client
+        permissions, is discarded, and every later call is made anonymously. An operator that is
+        not yet a bot is configured as one first; the root and system operators cannot be, so the
+        bot needs an operator of its own. Any other failure leaves the token in place and
+        authentication pending, so a server that was down when this was called can be
+        authenticated against once it is back.
 
         Returns:
             The identified operator, or None when Federation is not configured or there is no
@@ -154,9 +159,28 @@ class FederationService:
                     await self._discard_access_token()
                 raise
 
-            self._authenticated = operator.permissions.client
-            if not self._authenticated:
+            self._authenticated = False
+            if operator.disabled or not operator.permissions.client:
                 await self._discard_access_token()
+                return operator
+
+            if not operator.is_bot:
+                if operator.name.lower() in ("root", "system"):
+                    raise FederationException(
+                        "SpamProtectionBot requires a dedicated Federation operator with client "
+                        "permissions; root and system cannot be configured as bots"
+                    )
+                configuration = await self._call(
+                    "mark the Federation operator as a bot",
+                    client.update_operator_configuration(operator.uuid, is_bot=True),
+                )
+                if not configuration.is_bot:
+                    raise FederationException(
+                        "Federation did not confirm the bot operator configuration"
+                    )
+                operator = operator.model_copy(update={"configuration": configuration})
+
+            self._authenticated = True
             return operator
 
     async def _discard_access_token(self) -> None:

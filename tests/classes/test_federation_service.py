@@ -1,3 +1,4 @@
+import json
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -12,7 +13,7 @@ from spb.exceptions import FederationException
 
 ENDPOINT = "http://127.0.0.1:1"
 
-OPERATOR = {
+OPERATOR: dict[str, Any] = {
     "uuid": "0192aaaa-0000-7000-8000-000000000001",
     "name": "bot",
     "disabled": False,
@@ -20,7 +21,7 @@ OPERATOR = {
     "configuration": {
         "auto_assign_reports": False,
         "auto_assign_automated_reports": False,
-        "is_bot": False,
+        "is_bot": True,
     },
     "created": 1_700_000_000,
     "updated": 1_700_000_000,
@@ -186,6 +187,7 @@ async def test_a_missing_record_is_none(respx_mock: respx.MockRouter) -> None:
 
     assert await FederationService(ENDPOINT).report("uuid") is None
 
+
 @pytest.mark.anyio
 async def test_a_server_error_mentioning_not_found_is_an_error(
     respx_mock: respx.MockRouter,
@@ -196,4 +198,71 @@ async def test_a_server_error_mentioning_not_found_is_an_error(
 
     with pytest.raises(FederationException, match="not found"):
         await FederationService(ENDPOINT).report("uuid")
+
+
+# Configuring the bot's own operator
+
+
+NOT_A_BOT = OPERATOR | {"configuration": OPERATOR["configuration"] | {"is_bot": False}}
+
+
+@pytest.mark.anyio
+async def test_an_operator_that_is_not_a_bot_is_configured_as_one(
+    respx_mock: respx.MockRouter,
+) -> None:
+    respx_mock.get(f"{ENDPOINT}/operators/self").respond(json=NOT_A_BOT)
+    configure = respx_mock.patch(f"{ENDPOINT}/operators/{OPERATOR['uuid']}/configuration").respond(
+        json=OPERATOR["configuration"]
+    )
+    service = FederationService(ENDPOINT, "token")
+
+    operator = await service.authenticate()
+
+    assert operator is not None
+    assert operator.is_bot
+    assert service.is_authenticated
+    assert json.loads(configure.calls.last.request.content) == {"is_bot": True}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("name", ["root", "System"])
+async def test_root_and_system_are_not_configured_as_bots(
+    respx_mock: respx.MockRouter, name: str
+) -> None:
+    respx_mock.get(f"{ENDPOINT}/operators/self").respond(json=NOT_A_BOT | {"name": name})
+    service = FederationService(ENDPOINT, "token")
+
+    with pytest.raises(FederationException, match="dedicated Federation operator"):
+        await service.authenticate()
+
+    assert not service.is_authenticated
+    assert service.is_authentication_pending
+
+
+@pytest.mark.anyio
+async def test_an_unconfirmed_bot_configuration_does_not_authenticate(
+    respx_mock: respx.MockRouter,
+) -> None:
+    respx_mock.get(f"{ENDPOINT}/operators/self").respond(json=NOT_A_BOT)
+    respx_mock.patch(f"{ENDPOINT}/operators/{OPERATOR['uuid']}/configuration").respond(
+        json=NOT_A_BOT["configuration"]
+    )
+    service = FederationService(ENDPOINT, "token")
+
+    with pytest.raises(FederationException, match="did not confirm"):
+        await service.authenticate()
+
+    assert not service.is_authenticated
+    assert service.is_authentication_pending
+
+
+@pytest.mark.anyio
+async def test_a_disabled_operator_does_not_authenticate(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get(f"{ENDPOINT}/operators/self").respond(json=OPERATOR | {"disabled": True})
+    service = FederationService(ENDPOINT, "token")
+
+    await service.authenticate()
+
+    assert not service.is_authenticated
+    assert not service.is_authentication_pending
 

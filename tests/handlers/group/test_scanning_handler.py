@@ -100,7 +100,7 @@ async def context(
             "configuration": {
                 "auto_assign_reports": False,
                 "auto_assign_automated_reports": False,
-                "is_bot": False,
+                "is_bot": True,
             },
             "created": 1_700_000_000,
             "updated": 1_700_000_000,

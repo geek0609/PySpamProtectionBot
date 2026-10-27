@@ -243,7 +243,8 @@ class Main:
         try:
             operator = await service.authenticate()
         except FederationException as e:
-            if FederationService.is_credential_rejected(e):
+            rejected = FederationService.is_credential_rejected(e)
+            if rejected and not service.is_authentication_pending:
                 log.warning(
                     "Federation access token was rejected (%s); continuing as an anonymous client",
                     e,
