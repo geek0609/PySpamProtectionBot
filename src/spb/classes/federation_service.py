@@ -338,16 +338,16 @@ class FederationService:
         self,
         access_token: str | None,
         entity: str,
-        report: str,
+        report: str | None,
         incident_type: IncidentType,
         expires: int | None,
     ) -> str:
-        """Blacklists an entity against an existing report.
+        """Blacklists an entity, optionally against an existing report.
 
         Args:
             access_token: The operator's access token, or None to act as the bot.
             entity: The entity to blacklist.
-            report: The UUID of the supporting report.
+            report: The UUID of the supporting report, or None for none.
             incident_type: The incident type.
             expires: The Unix time the blacklist expires, or None for permanent.
 

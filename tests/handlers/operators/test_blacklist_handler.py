@@ -1,6 +1,7 @@
 """Tests how BlacklistHandler reads its arguments and the entities it publishes before
 blacklisting."""
 
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
@@ -98,3 +99,20 @@ async def test_only_an_operator_may_blacklist(
     )
 
     assert answer(context, client) == text(context, "operator_only")
+
+
+@pytest.mark.anyio
+async def test_a_named_entity_is_blacklisted_without_a_report(
+    context: HandlerContext, client: RecordingClient, respx_mock: respx.MockRouter
+) -> None:
+    blacklist = respx_mock.post(f"{ENDPOINT}/blacklist").respond(json="blacklist-uuid")
+
+    command = "/blacklist someone@example.com spam 12h"
+    await BlacklistHandler().handle(context.with_update(updates.private_message(1, command)))
+
+    body = json.loads(blacklist.calls.last.request.content)
+    assert body["entity_identifier"] == "someone@example.com"
+    assert "report_uuid" not in body
+    reply = answer(context, client)
+    assert "blacklist-uuid" in reply
+    assert text(context, "report_id", "").split("{")[0].split("<code>")[0] not in reply

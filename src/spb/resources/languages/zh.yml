@@ -376,7 +376,7 @@ blacklist:
   regular_group_note: "\n\n<i>回复了某条消息？在普通群组中，Telegram 不会向我显示对我加入之前所发消息的回复。请回复一条较新的消息，或将群组升级为超级群组。</i>"
   federation_not_configured: "黑名单功能不可用，因为未配置联邦。"
   operator_only: "此命令仅对已认证的操作员可用。请先使用 <code>/auth &lt;access_token&gt;</code>。"
-  usage: "<b>用法</b>\n\n<code>/blacklist &lt;identifier&gt; &lt;report_uuid&gt; &lt;type&gt; &lt;expires&gt;</code>：针对现有举报拉黑某个实体。\n回复一条消息并发送 <code>/blacklist &lt;report_uuid&gt; &lt;type&gt; &lt;expires&gt;</code>，针对现有举报拉黑消息作者。\n回复一条消息并发送 <code>/blacklist &lt;type&gt; &lt;expires&gt;</code>，创建支持性举报并拉黑消息作者。\n\n<code>expires</code> 接收带有单位后缀的时长（<code>s</code>、<code>m</code>、<code>h</code> 或 <code>d</code>；纯数字默认为秒），例如 <code>30d</code> 或 <code>12h</code>。"
+  usage: "<b>用法</b>\n\n<code>/blacklist &lt;identifier&gt; &lt;report_uuid&gt; &lt;type&gt; &lt;expires&gt;</code>：针对现有举报拉黑某个实体。\n回复一条消息并发送 <code>/blacklist &lt;report_uuid&gt; &lt;type&gt; &lt;expires&gt;</code>，针对现有举报拉黑消息作者。\n回复一条消息并发送 <code>/blacklist &lt;type&gt; &lt;expires&gt;</code>，创建支持性举报并拉黑消息作者。\n\n<code>expires</code> 接收带有单位后缀的时长（<code>s</code>、<code>m</code>、<code>h</code> 或 <code>d</code>；纯数字默认为秒），例如 <code>30d</code> 或 <code>12h</code>。\n\n不回复消息时，使用 <code>/blacklist &lt;identifier&gt; &lt;type&gt; &lt;expires&gt;</code> 可在不创建举报的情况下加入黑名单。"
   invalid_type: "未知的违规类型 <code>{0}</code>。"
   invalid_expires: "无效的到期时间 <code>{0}</code>。请使用如 <code>30d</code>、<code>12h</code> 或 <code>45m</code> 等时长格式。"
   invalid_report: "无效的举报 UUID <code>{0}</code>。"

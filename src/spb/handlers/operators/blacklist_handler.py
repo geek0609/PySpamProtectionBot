@@ -47,7 +47,8 @@ class _BlacklistRequest:
         entity_identifier: The entity to blacklist.
         target: The replied-to message whose author is blacklisted, or None for an explicit
             identifier.
-        report_uuid: The supporting report, or None to create one.
+        report_uuid: The supporting report, or None to create one for a replied-to author and to
+            blacklist an explicit identifier without one.
         incident_type: The incident type of the blacklist.
         expiration_seconds: How long the blacklist lasts, counted from now.
     """
@@ -61,10 +62,12 @@ class _BlacklistRequest:
 
 @update_handler(UpdateType.COMMAND, commands=("blacklist",))
 class BlacklistHandler(Handler):
-    """Blacklists an entity on the Federation server, backed by a supporting report.
+    """Blacklists an entity on the Federation server, optionally backed by a supporting report.
 
     The command accepts several forms:
 
+    - /blacklist <identifier> <type> <expires> without a reply: blacklist the given entity without
+      a report,
     - /blacklist <identifier> <report_uuid> <type> <expires>: blacklist the given entity against an
       existing report,
     - /blacklist <report_uuid> <type> <expires> as a reply to a message: blacklist the replied-to
@@ -110,7 +113,7 @@ class BlacklistHandler(Handler):
         await _publish_target(context, message, parsed)
 
         report_uuid = parsed.report_uuid
-        if report_uuid is None:
+        if report_uuid is None and parsed.target is not None:
             report_uuid = await _create_reference_report(
                 context, operator.access_token, message, parsed.target, parsed.incident_type
             )
@@ -139,12 +142,16 @@ class BlacklistHandler(Handler):
 
         incident_type = message_helper.display_name(parsed.incident_type)
         expiry = message_helper.format_timestamp(expires)
+        report_line = (
+            lm.get(lang, "blacklist", "report_id", html_escape.escape(report_uuid)) + "\n"
+            if report_uuid is not None
+            else ""
+        )
         html = (
             lm.get(lang, "blacklist", "success_header")
             + lm.get(lang, "blacklist", "entity", html_escape.escape(parsed.entity_identifier))
             + "\n"
-            + lm.get(lang, "blacklist", "report_id", html_escape.escape(report_uuid))
-            + "\n"
+            + report_line
             + lm.get(lang, "blacklist", "type", html_escape.escape(incident_type))
             + "\n"
             + lm.get(lang, "blacklist", "expires", html_escape.escape(expiry))
@@ -230,6 +237,12 @@ async def _parse_arguments(
         return _BlacklistRequest(
             entity_identifier, None, report_uuid, incident_type, expiration_seconds
         )
+
+    if len(args) == 3 and _reply_target(message) is None:
+        entity_identifier = await _resolve_identifier(context, args[0])
+        if entity_identifier is None:
+            raise ArgumentParseException(lm.get(lang, "blacklist", "usage"))
+        return _BlacklistRequest(entity_identifier, None, None, incident_type, expiration_seconds)
 
     target = _require_reply_target(context, message, lang)
     report = _require_report_uuid(lm, lang, args[0]) if len(args) == 3 else None
