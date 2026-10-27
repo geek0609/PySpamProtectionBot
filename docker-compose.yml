@@ -22,8 +22,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      additional_contexts:
-        pyfederation: ../PyFederation
       args:
         BUILD_DATE: ${BUILD_DATE:-}
         REVISION: ${GIT_COMMIT:-}

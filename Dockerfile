@@ -6,9 +6,6 @@
 #   bind-mounted at /app/configuration.yml, and persists its SQLite database and Telegram session
 #   under /data.
 #
-#   PyFederation is not published, so it is taken from a named build context:
-#     docker build --build-context pyfederation=../PyFederation .
-#
 
 FROM python:3.13-alpine AS builder
 
@@ -16,12 +13,10 @@ WORKDIR /build
 
 RUN python -m venv /opt/spb
 
-COPY --from=pyfederation pyproject.toml README.md LICENSE ./pyfederation/
-COPY --from=pyfederation src ./pyfederation/src
 COPY pyproject.toml LICENSE ./
 COPY src ./src
 
-RUN /opt/spb/bin/pip install --no-cache-dir ./pyfederation .
+RUN /opt/spb/bin/pip install --no-cache-dir .
 
 FROM python:3.13-alpine
 
