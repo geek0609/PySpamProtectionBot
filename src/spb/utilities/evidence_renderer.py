@@ -40,6 +40,14 @@ def info_html(lm: LanguageManager, lang: Language, evidence: EvidenceRecord) -> 
     confidential = lm.get(lang, "general", "yes" if evidence.confidential else "no")
     html.append(lm.get(lang, "evidence", "confidential", confidential) + "\n")
 
+    automated = lm.get(lang, "general", "yes" if evidence.automated else "no")
+    html.append(lm.get(lang, "evidence", "automated", automated) + "\n")
+    content_type = message_helper.display_name(evidence.content_type)
+    html.append(lm.get(lang, "evidence", "content_type", content_type) + "\n")
+    if evidence.context:
+        context = html_escape.escape(json.dumps(evidence.context, ensure_ascii=False))
+        html.append(lm.get(lang, "evidence", "context", context) + "\n")
+
     if evidence.text_content is not None and evidence.text_content.strip():
         content = html_escape.escape(evidence.text_content)
         html.append(lm.get(lang, "evidence", "content", content) + "\n")

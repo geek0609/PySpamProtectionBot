@@ -266,6 +266,9 @@ info:
   report_entry: "\u2022 {0}：{1} ({2}) <code>{3}</code>\n"
 
 evidence:
+  automated: "<b>自动生成:</b> {0}"
+  content_type: "<b>内容类型:</b> {0}"
+  context: "<b>上下文:</b> {0}"
   usage: "用法：<code>/evidence &lt;uuid&gt;</code>"
   query_error: "无法查询证据记录。"
   not_found: "没有与 <code>{0}</code> 匹配的证据。"

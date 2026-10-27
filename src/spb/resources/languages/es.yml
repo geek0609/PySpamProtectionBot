@@ -266,6 +266,9 @@ info:
   report_entry: "\u2022 {0}: {1} ({2}) <code>{3}</code>\n"
 
 evidence:
+  automated: "<b>Automatizada:</b> {0}"
+  content_type: "<b>Tipo de contenido:</b> {0}"
+  context: "<b>Contexto:</b> {0}"
   usage: "Uso: <code>/evidence &lt;uuid&gt;</code>"
   query_error: "No se pudo consultar el registro de evidencia."
   not_found: "Ninguna evidencia coincide con <code>{0}</code>."

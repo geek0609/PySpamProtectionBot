@@ -266,6 +266,9 @@ info:
   report_entry: "\u2022 {0}: {1} ({2}) <code>{3}</code>\n"
 
 evidence:
+  automated: "<b>Автоматическое:</b> {0}"
+  content_type: "<b>Тип содержимого:</b> {0}"
+  context: "<b>Контекст:</b> {0}"
   usage: "Использование: <code>/evidence &lt;uuid&gt;</code>"
   query_error: "Не удалось запросить запись доказательства."
   not_found: "Доказательство <code>{0}</code> не найдено."
