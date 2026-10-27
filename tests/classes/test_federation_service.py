@@ -10,6 +10,7 @@ from pyfederation.records import ContentInput
 
 from spb.classes.federation_service import FederationService
 from spb.exceptions import FederationException
+from tests.support import payloads
 
 ENDPOINT = "http://127.0.0.1:1"
 
@@ -266,3 +267,63 @@ async def test_a_disabled_operator_does_not_authenticate(respx_mock: respx.MockR
     assert not service.is_authenticated
     assert not service.is_authentication_pending
 
+
+# Blocking ads and trackers
+
+
+SCAN_RESULT: dict[str, Any] = {
+    "resolved_entities": [],
+    "scan_results": {},
+    "suggested_action": None,
+    "risk_score": 0,
+}
+
+
+@pytest.mark.anyio
+async def test_blocking_ads_and_trackers_adds_the_concerns_the_server_supports(
+    respx_mock: respx.MockRouter,
+) -> None:
+    info = respx_mock.get(f"{ENDPOINT}/info").respond(
+        json=payloads.server_information(
+            concerns=["SPAM", "ADVERTISING", "TRACKING"], default_concerns=["SPAM"]
+        )
+    )
+    scan = respx_mock.post(f"{ENDPOINT}/scan").respond(json=SCAN_RESULT)
+    service = FederationService(ENDPOINT)
+
+    await service.scan_content(ContentInput(text_content="hi"), None, True)
+    await service.scan_content(ContentInput(text_content="hi"), None, True)
+
+    assert info.call_count == 1
+    body = json.loads(scan.calls.last.request.content)
+    assert body["concerns"] == ["SPAM", "ADVERTISING", "TRACKING"]
+
+
+@pytest.mark.anyio
+async def test_only_supported_ad_and_tracker_concerns_are_added(
+    respx_mock: respx.MockRouter,
+) -> None:
+    respx_mock.get(f"{ENDPOINT}/info").respond(
+        json=payloads.server_information(concerns=["SPAM", "PHISHING"], default_concerns=["SPAM"])
+    )
+    scan = respx_mock.post(f"{ENDPOINT}/scan").respond(json=SCAN_RESULT)
+
+    await FederationService(ENDPOINT).scan_content(ContentInput(text_content="hi"), None, True)
+
+    assert json.loads(scan.calls.last.request.content)["concerns"] == ["SPAM"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("block_ads_trackers", [False, True])
+async def test_scans_use_the_server_defaults_otherwise(
+    respx_mock: respx.MockRouter, block_ads_trackers: bool
+) -> None:
+    # Without the setting, or when the server's concerns cannot be read, the server decides.
+    respx_mock.get(f"{ENDPOINT}/info").respond(500, json={})
+    scan = respx_mock.post(f"{ENDPOINT}/scan").respond(json=SCAN_RESULT)
+
+    await FederationService(ENDPOINT).scan_content(
+        ContentInput(text_content="hi"), None, block_ads_trackers
+    )
+
+    assert "concerns" not in json.loads(scan.calls.last.request.content)

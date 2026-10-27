@@ -1,6 +1,7 @@
 """Tests when scanning acts on a message and when it tells a chat's moderators about a member, so a
 #SCAN_MATCH is only ever sent for something that was flagged."""
 
+import json
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, cast
@@ -20,7 +21,7 @@ from spb.handlers.group.scanning_handler import ScanningHandler
 from spb.objects.admin_info import AdminInfo
 from spb.objects.context.handler_context import HandlerContext
 from spb.objects.update import Update
-from tests.support import contexts, updates
+from tests.support import contexts, payloads, updates
 from tests.support.recording_client import RecordingClient
 
 ENDPOINT = "http://127.0.0.1:1"
@@ -107,6 +108,11 @@ async def context(
         }
     )
     respx_mock.post(f"{ENDPOINT}/entities").respond(json="entity-uuid")
+    respx_mock.get(f"{ENDPOINT}/info").respond(
+        json=payloads.server_information(
+            concerns=["SPAM", "ADVERTISING", "TRACKING"], default_concerns=["SPAM"]
+        )
+    )
     respx_mock.get(f"{ENDPOINT}/entities/99@telegram.org/query").respond(404, json={})
     federation = FederationService(ENDPOINT, "token")
     await federation.authenticate()
@@ -177,6 +183,25 @@ async def test_a_clean_message_is_left_alone(
     await ScanningHandler().handle(context.with_update(Update(1, message=message(text=Str("hi")))))
 
     assert [call.method for call in client.calls] == ["get_chat_member"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("block_ads_trackers", "concerns"),
+    [(True, ["SPAM", "ADVERTISING", "TRACKING"]), (False, None)],
+)
+async def test_a_chat_chooses_whether_ads_and_trackers_are_assessed(
+    context: HandlerContext,
+    respx_mock: respx.MockRouter,
+    block_ads_trackers: bool,
+    concerns: list[str] | None,
+) -> None:
+    context.managers.chat_configurations.set_block_ads_trackers(GROUP.id, block_ads_trackers)
+    scan = scanned(respx_mock, None)
+
+    await ScanningHandler().handle(context.with_update(Update(1, message=message(text=Str("hi")))))
+
+    assert json.loads(scan.calls.last.request.content).get("concerns") == concerns
 
 
 @pytest.mark.anyio

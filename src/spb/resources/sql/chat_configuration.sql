@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS chat_configuration
     chat_id INTEGER PRIMARY KEY,
     enabled INTEGER NOT NULL DEFAULT 0,
     scanning_enabled INTEGER NOT NULL DEFAULT 1,
+    block_ads_trackers INTEGER NOT NULL DEFAULT 1,
     scanning_behavior TEXT NOT NULL DEFAULT 'STRICT',
     join_protection_enabled INTEGER NOT NULL DEFAULT 1,
     join_protection_behavior TEXT NOT NULL DEFAULT 'STRICT',

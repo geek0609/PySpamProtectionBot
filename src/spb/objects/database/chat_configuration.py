@@ -27,6 +27,7 @@ class ChatConfiguration:
         channel_link_id: The linked notification chat or channel id, or None.
         channel_link_verification_code: The one-time code used to link a notification chat, or None.
         channel_link_thread_id: The forum topic id in the linked notification chat, or None.
+        block_ads_trackers: Whether content scanning also assesses advertising and tracking.
     """
 
     chat_id: int
@@ -44,6 +45,7 @@ class ChatConfiguration:
     channel_link_id: int | None
     channel_link_verification_code: int | None
     channel_link_thread_id: int | None
+    block_ads_trackers: bool = True
 
     @classmethod
     def default(cls, chat_id: int, privacy_mode: bool) -> Self:
@@ -74,6 +76,7 @@ class ChatConfiguration:
             channel_link_id=None,
             channel_link_verification_code=None,
             channel_link_thread_id=None,
+            block_ads_trackers=True,
         )
 
     @classmethod
@@ -105,4 +108,5 @@ class ChatConfiguration:
             channel_link_id=row["channel_link_id"],
             channel_link_verification_code=row["channel_link_verification_code"],
             channel_link_thread_id=row["channel_link_thread_id"],
+            block_ads_trackers=row["block_ads_trackers"] != 0,
         )

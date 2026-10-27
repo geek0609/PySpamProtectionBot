@@ -247,6 +247,10 @@ def _apply_action(
             enabled = not configuration.scanning_enabled
             update(lambda manager: manager.set_scanning_enabled(chat_id, enabled))
             page = ConfigurationPage.SCANNING
+        case "toggle_ads_trackers":
+            enabled = not configuration.block_ads_trackers
+            update(lambda manager: manager.set_block_ads_trackers(chat_id, enabled))
+            page = ConfigurationPage.SCANNING
         case "toggle_join_protection":
             enabled = not configuration.join_protection_enabled
             update(lambda manager: manager.set_join_protection_enabled(chat_id, enabled))
@@ -642,6 +646,14 @@ def _build_scanning_html(
     status = _status(lm, lang, configuration.scanning_enabled)
     html.append(lm.get(lang, "configuration", "scanning.status", status) + "\n\n")
     if configuration.scanning_enabled:
+        block_ads_trackers = _status(lm, lang, configuration.block_ads_trackers)
+        html.append(
+            lm.get(lang, "configuration", "scanning.block_ads_trackers", block_ads_trackers)
+            + "\n\n"
+        )
+        html.append(
+            lm.get(lang, "configuration", "scanning.block_ads_trackers_description") + "\n\n"
+        )
         level = _scanning_level(lm, lang, configuration.scanning_behavior)
         html.append(lm.get(lang, "configuration", "scanning.level", level) + "\n\n")
         if _notification_avenue_available(configuration):
@@ -673,6 +685,18 @@ def _build_scanning_markup(
         ]
     ]
     if configuration.scanning_enabled:
+        rows.append(
+            [
+                _toggle_button(
+                    session,
+                    configuration.block_ads_trackers,
+                    "toggle_ads_trackers",
+                    lm.get(lang, "configuration", "scanning.enable_ads_trackers"),
+                    "toggle_ads_trackers",
+                    lm.get(lang, "configuration", "scanning.disable_ads_trackers"),
+                )
+            ]
+        )
         passive_available = (
             configuration.scanning_notifications_enabled
             and _notification_avenue_available(configuration)

@@ -1,6 +1,7 @@
 """Manager for the chat_configuration table."""
 
 import logging
+import sqlite3
 from datetime import timedelta
 from enum import Enum
 
@@ -34,6 +35,7 @@ class ChatConfigurationManager:
         """
         self._database = database
         self._default_privacy_mode = default_privacy_mode
+        self._migrate_schema()
         self._cache: Cache[int, ChatConfiguration] = Cache(CACHE_MAX_SIZE, CACHE_EXPIRY)
         self._channel_link_cache: Cache[int, int] = Cache(CACHE_MAX_SIZE, CACHE_EXPIRY)
         self._verification_code_cache: Cache[int, int] = Cache(CACHE_MAX_SIZE, CACHE_EXPIRY)
@@ -95,6 +97,9 @@ class ChatConfigurationManager:
 
     def set_scanning_enabled(self, chat_id: int, enabled: bool) -> None:
         self._update(chat_id, "scanning_enabled = ?", enabled)
+
+    def set_block_ads_trackers(self, chat_id: int, enabled: bool) -> None:
+        self._update(chat_id, "block_ads_trackers = ?", enabled)
 
     def set_scanning_behavior(self, chat_id: int, behavior: ScanningBehavior) -> None:
         self._update(chat_id, "scanning_behavior = ?", behavior)
@@ -191,6 +196,30 @@ class ChatConfigurationManager:
             return configuration
         self._verification_code_cache.remove(verification_code)
         return None
+
+    def _migrate_schema(self) -> None:
+        """Adds the columns of later releases to a chat_configuration table created before them.
+
+        The schema file only creates missing tables, so a database from an earlier release keeps
+        its old columns until they are added here. block_ads_trackers is added enabled, so existing
+        chats block ads and trackers like new ones.
+
+        Raises:
+            DatabaseException: If the table could not be migrated.
+        """
+
+        def migrate(connection: sqlite3.Connection) -> None:
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(chat_configuration)")
+            }
+            if "block_ads_trackers" not in columns:
+                connection.execute(
+                    "ALTER TABLE chat_configuration "
+                    "ADD COLUMN block_ads_trackers INTEGER NOT NULL DEFAULT 1"
+                )
+                log.info("Added missing column block_ads_trackers to chat_configuration")
+
+        self._database.transaction(migrate)
 
     def _update(self, chat_id: int, assignments: str, *values: object) -> None:
         """Applies column assignments to one chat's row and drops its cached configuration.

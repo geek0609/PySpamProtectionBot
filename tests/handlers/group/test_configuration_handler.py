@@ -127,3 +127,20 @@ async def test_someone_elses_menu_is_left_to_its_owner(
     current = context.sessions.configuration.find(session.hash)
     assert current is not None
     assert current.page is ConfigurationPage.MAIN
+
+
+@pytest.mark.anyio
+async def test_blocking_ads_and_trackers_is_toggled_on_the_scanning_page(
+    context: HandlerContext, session: ConfigurationContext, client: RecordingClient
+) -> None:
+    client.respond("get_chat_member", member(ChatMemberStatus.OWNER, True))
+    context.managers.chat_configurations.enable_chat_configuration(CHAT)
+
+    await ConfigurationHandler().handle(press(context, session, "toggle_ads_trackers"))
+
+    assert not context.managers.chat_configurations.resolve(CHAT).block_ads_trackers
+    (edit,) = client.named("edit_message_text")
+    lm = context.languages
+    enable = lm.get(lm.default_language, "configuration", "scanning.enable_ads_trackers")
+    buttons = [button.text for row in edit.kwargs["reply_markup"].inline_keyboard for button in row]
+    assert any(enable in text for text in buttons)

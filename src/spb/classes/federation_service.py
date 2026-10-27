@@ -1,7 +1,9 @@
 """Everything the bot asks of a Federation server."""
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from os import PathLike
 from pathlib import Path
 from typing import Any
@@ -23,10 +25,19 @@ from pyfederation.records import (
     ServerInformation,
 )
 
+from spb.classes.cache import Cache
 from spb.exceptions import FederationException
+
+log = logging.getLogger(__name__)
 
 BLACKLIST_PAGE_SIZE = 5
 """How many blacklist records are read for an entity before the rest are ignored."""
+
+SCAN_CAPABILITIES_EXPIRY = timedelta(minutes=5)
+"""How long the server's concerns are remembered for scans that add advertising and tracking."""
+
+AD_AND_TRACKER_CONCERNS = (IncidentType.ADVERTISING, IncidentType.TRACKING)
+"""The concerns a chat that blocks ads and trackers adds to the server's default concerns."""
 
 
 class FederationService:
@@ -74,6 +85,7 @@ class FederationService:
         self._client = AsyncFederationClient(endpoint, access_token) if endpoint else None
         self._authenticated = False
         self._authentication = asyncio.Lock()
+        self._scan_capabilities: Cache[str, ServerInformation] = Cache(1, SCAN_CAPABILITIES_EXPIRY)
 
     @classmethod
     def unavailable(cls) -> "FederationService":
@@ -273,15 +285,46 @@ class FederationService:
             lambda operator: operator.set_entity_relationship(entity, target, relationship),
         )
 
-    async def scan_content(self, content: ContentInput, entity: str | None) -> ScannedContent:
+    async def scan_content(
+        self, content: ContentInput, entity: str | None, block_ads_trackers: bool = False
+    ) -> ScannedContent:
         """Scans content for spam, phishing, malware and other threats.
 
         Args:
             content: The content to scan, with whatever metadata the caller chose to attach.
             entity: The entity the content came from, or None to scan anonymously.
+            block_ads_trackers: Whether to assess advertising and tracking as well as the server's
+                default concerns. Only the ones the server supports are added, so a server without
+                these optional concerns still scans as usual. The server's concerns are cached
+                briefly, so this does not read them for every message.
         """
         client = self._require_available()
-        return await self._call("scan content", client.scan_content(content, entity))
+        if not block_ads_trackers:
+            return await self._call("scan content", client.scan_content(content, entity))
+
+        try:
+            information = await self._scan_capabilities.get_async(
+                "info",
+                lambda _: self._call("read scan capabilities", client.get_server_information()),
+            )
+        except FederationException as e:
+            log.warning(
+                "Unable to read advertising and tracking scan capabilities; scanning with server "
+                "defaults: %s",
+                e,
+            )
+            return await self._call("scan content", client.scan_content(content, entity))
+
+        assert information is not None
+        concerns = list(information.default_concerns)
+        concerns += [
+            concern
+            for concern in AD_AND_TRACKER_CONCERNS
+            if concern in information.concerns and concern not in concerns
+        ]
+        return await self._call(
+            "scan content", client.scan_content(content, entity, concerns=concerns or None)
+        )
 
     async def active_blacklists(self, entity: str) -> list[BlacklistRecord]:
         """Returns the blacklist records currently active against an entity."""

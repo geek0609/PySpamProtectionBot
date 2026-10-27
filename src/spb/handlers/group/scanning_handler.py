@@ -152,7 +152,7 @@ async def _scan_message_content(context: HandlerContext, message: Message) -> No
 
     scanned_content = None
     if _should_scan(context, message, configuration):
-        scanned_content = await _scan(context, message, configuration.privacy_mode)
+        scanned_content = await _scan(context, message, configuration)
 
     entity_query = None
     if not configuration.privacy_mode:
@@ -258,14 +258,16 @@ async def _scan_message_content(context: HandlerContext, message: Message) -> No
 
 
 async def _scan(
-    context: HandlerContext, message: Message, privacy_mode: bool
+    context: HandlerContext, message: Message, configuration: ChatConfiguration
 ) -> ScannedContent | None:
     """Submits the message content to Federation's scanner, or returns None when it failed."""
     author_id = message.from_user.id
+    privacy_mode = configuration.privacy_mode
     try:
         scanned = await context.federation.scan_content(
             message_content.build_scan_input(message, privacy_mode),
             None if privacy_mode else f"{author_id}@telegram.org",
+            configuration.block_ads_trackers,
         )
     except FederationException as e:
         log.warning("Failed to scan message %s in chat %s: %s", message.id, message.chat.id, e)
