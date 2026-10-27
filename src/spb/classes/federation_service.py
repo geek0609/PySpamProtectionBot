@@ -567,9 +567,12 @@ class FederationService:
 
 
 def _is_not_found(e: FederationClientException) -> bool:
-    """Returns whether a failure means "the server has no such record" rather than a real error."""
-    message = str(e).lower()
-    return "404" in message or "not found" in message or "does not exist" in message
+    """Returns whether a failure means "the server has no such record" rather than a real error.
+
+    Only HTTP 404 says so: a server error that mentions something not being found is still an
+    error.
+    """
+    return e.status_code == 404
 
 
 _UNAVAILABLE = FederationService(None)

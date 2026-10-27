@@ -185,3 +185,15 @@ async def test_a_missing_record_is_none(respx_mock: respx.MockRouter) -> None:
     )
 
     assert await FederationService(ENDPOINT).report("uuid") is None
+
+@pytest.mark.anyio
+async def test_a_server_error_mentioning_not_found_is_an_error(
+    respx_mock: respx.MockRouter,
+) -> None:
+    respx_mock.get(f"{ENDPOINT}/reports/uuid").respond(
+        500, json={"success": False, "message": "Database row not found"}
+    )
+
+    with pytest.raises(FederationException, match="not found"):
+        await FederationService(ENDPOINT).report("uuid")
+
