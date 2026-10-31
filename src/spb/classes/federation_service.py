@@ -1,7 +1,10 @@
 """Everything the bot asks of a Federation server."""
 
 import asyncio
+import inspect
 import logging
+import math
+import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from os import PathLike
@@ -39,6 +42,9 @@ SCAN_CAPABILITIES_EXPIRY = timedelta(minutes=5)
 AD_AND_TRACKER_CONCERNS = (IncidentType.ADVERTISING, IncidentType.TRACKING)
 """The concerns a chat that blocks ads and trackers adds to the server's default concerns."""
 
+MAX_REJECTION_BACKOFF = 300
+"""The longest wait, in seconds, after a rejection from a server that gives no delay."""
+
 
 class FederationService:
     """Everything the bot asks of a Federation server.
@@ -72,6 +78,13 @@ class FederationService:
 
     The bot's operator must be a bot (is_bot), so that the evidence and reports it submits are
     marked automated; authenticate() configures it as one if it is not yet.
+
+    A server may limit the rate of its requests (OFD 2.2). When it rejects one with HTTP 429 or
+    503, no further request is sent as the bot until the delay the server gave has elapsed, or,
+    from a server that gives none, a wait that doubles from one second up to five minutes.
+    Meanwhile the calls fail with FederationException, as they do while the server is unreachable.
+    Operators acting with their own tokens are limited separately by the server, so their calls
+    are not held back.
     """
 
     def __init__(self, endpoint: str | None, access_token: str | None = None) -> None:
@@ -86,6 +99,10 @@ class FederationService:
         self._authenticated = False
         self._authentication = asyncio.Lock()
         self._scan_capabilities: Cache[str, ServerInformation] = Cache(1, SCAN_CAPABILITIES_EXPIRY)
+        # Requests are held back until this time.monotonic() value after the server rejected one
+        # with HTTP 429 or 503 (OFD 2.2 "Rate Limiting")
+        self._retry_not_before = 0.0
+        self._consecutive_rejections = 0
 
     @classmethod
     def unavailable(cls) -> "FederationService":
@@ -599,25 +616,64 @@ class FederationService:
                 "carry client permissions"
             )
 
-    @staticmethod
-    async def _call[T](what: str, call: Awaitable[T]) -> T:
+    async def _call[T](self, what: str, call: Awaitable[T]) -> T:
         """Awaits a call against the shared client, translating its failures."""
+        self._require_not_rate_limited(what, call)
         try:
-            return await call
-        except (FederationClientException, ValueError) as e:
-            raise FederationException(f"Failed to {what}: {e}") from e
-
-    @staticmethod
-    async def _optional[T](what: str, call: Awaitable[T]) -> T | None:
-        """Awaits a lookup that may legitimately find nothing."""
-        try:
-            return await call
+            result = await call
         except FederationClientException as e:
-            if _is_not_found(e):
-                return None
+            self._record_rejected(e)
             raise FederationException(f"Failed to {what}: {e}") from e
         except ValueError as e:
             raise FederationException(f"Failed to {what}: {e}") from e
+        self._consecutive_rejections = 0
+        return result
+
+    async def _optional[T](self, what: str, call: Awaitable[T]) -> T | None:
+        """Awaits a lookup that may legitimately find nothing."""
+        self._require_not_rate_limited(what, call)
+        try:
+            result = await call
+        except FederationClientException as e:
+            if _is_not_found(e):
+                self._consecutive_rejections = 0
+                return None
+            self._record_rejected(e)
+            raise FederationException(f"Failed to {what}: {e}") from e
+        except ValueError as e:
+            raise FederationException(f"Failed to {what}: {e}") from e
+        self._consecutive_rejections = 0
+        return result
+
+    def _require_not_rate_limited(self, what: str, call: Awaitable[Any]) -> None:
+        """Fails without sending the call while the server's delay has not elapsed."""
+        remaining = self._retry_not_before - time.monotonic()
+        if remaining <= 0:
+            return
+
+        if inspect.iscoroutine(call):
+            call.close()
+        raise FederationException(
+            f"Failed to {what}: The Federation server is limiting requests, retrying in "
+            f"{max(1, math.ceil(remaining))} second(s)"
+        )
+
+    def _record_rejected(self, e: FederationClientException) -> None:
+        """Holds back further calls after the server rejected one with HTTP 429 or 503."""
+        if not e.is_retryable:
+            return
+
+        delay = e.retry_after
+        if delay is None:
+            delay = min(MAX_REJECTION_BACKOFF, 1 << min(self._consecutive_rejections, 9))
+        self._consecutive_rejections += 1
+        self._retry_not_before = time.monotonic() + delay
+        log.warning(
+            "Federation server rejected a request with HTTP %s; holding back requests for %s "
+            "second(s)",
+            e.status_code,
+            delay,
+        )
 
     async def _as_operator[T](
         self,

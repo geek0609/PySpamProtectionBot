@@ -327,3 +327,64 @@ async def test_scans_use_the_server_defaults_otherwise(
     )
 
     assert "concerns" not in json.loads(scan.calls.last.request.content)
+
+
+# Connected to a server that limits its requests
+
+
+@pytest.mark.anyio
+async def test_no_request_is_sent_before_the_delay_the_server_gave_has_elapsed(
+    respx_mock: respx.MockRouter,
+) -> None:
+    server = respx_mock.route(host="127.0.0.1").respond(
+        429,
+        json={
+            "success": False,
+            "code": 429,
+            "message": "Too Many Requests: Rate limit exceeded",
+            "retry_after": 30,
+        },
+        headers={"Retry-After": "30"},
+    )
+    service = FederationService(ENDPOINT)
+
+    with pytest.raises(FederationException):
+        await service.server_information()
+    with pytest.raises(FederationException, match="limiting requests, retrying in 30 second"):
+        await service.query_entity("1@telegram.org")
+    with pytest.raises(FederationException):
+        await service.scan_content(ContentInput(text_content="hi"), None)
+
+    assert server.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_a_rejection_without_a_delay_holds_back_requests_for_a_doubling_wait(
+    respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1000.0
+    monkeypatch.setattr("spb.classes.federation_service.time.monotonic", lambda: now)
+    server = respx_mock.get(f"{ENDPOINT}/info").respond(503, text="Service Unavailable")
+    service = FederationService(ENDPOINT)
+
+    for wait in (1, 2, 4):
+        with pytest.raises(FederationException, match="Service Unavailable"):
+            await service.server_information()
+        now += wait - 0.5
+        with pytest.raises(FederationException, match="limiting requests"):
+            await service.server_information()
+        now += 0.5
+
+    assert server.call_count == 3
+
+
+@pytest.mark.anyio
+async def test_other_errors_do_not_hold_back_requests(respx_mock: respx.MockRouter) -> None:
+    server = respx_mock.get(f"{ENDPOINT}/info").respond(500, json={"message": "Database error"})
+    service = FederationService(ENDPOINT)
+
+    for _ in range(2):
+        with pytest.raises(FederationException, match="Database error"):
+            await service.server_information()
+
+    assert server.call_count == 2

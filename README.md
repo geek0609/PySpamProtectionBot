@@ -206,6 +206,12 @@ The `federation` section is entirely optional. When it is absent, the bot starts
 every feature that depends on Federation (scanning, join protection, reporting, entity lookups) reports itself
 unavailable rather than failing.
 
+A Federation server may limit the rate of its requests (OFD 2.2). When it rejects a request with HTTP 429 or 503, the
+bot sends no further request as itself until the delay the server gave has elapsed, or, from a server that gives none,
+a wait that doubles from one second up to five minutes. Meanwhile the features that need Federation report themselves
+unavailable, as they do while the server is unreachable, and moderation keeps working. Operators signing in through
+`/auth` act with their own tokens, which the server limits separately.
+
 | Name                                  | Type   | Default | Required                         | Description                                                                                                             |
 |---------------------------------------|--------|---------|----------------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | `federation.endpoint`                 | string |         | Yes, when the section is present | Base URL of the Federation server                                                                                       |
