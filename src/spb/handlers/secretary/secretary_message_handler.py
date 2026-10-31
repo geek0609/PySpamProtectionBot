@@ -31,7 +31,13 @@ from spb.objects.database.secretary_contact import SecretaryContact
 from spb.objects.database.user_identity import UserIdentity
 from spb.objects.language import Language
 from spb.objects.secretary_report_target import SecretaryReportTarget
-from spb.utilities import flat_metadata, message_content, message_helper, report_attachments
+from spb.utilities import (
+    flat_metadata,
+    message_content,
+    message_helper,
+    report_attachments,
+    scan_files,
+)
 
 log = logging.getLogger(__name__)
 
@@ -288,24 +294,27 @@ async def recommend(
     content_suggestion = entity_suggestion = None
     entity_uuid = None
 
-    if has_text:
-        try:
-            scanned = await federation.scan_content(
-                message_content.build_scan_input(message, False), author_entity
-            )
-        except FederationException as e:
-            log.warning(
-                "Failed to scan business message %s from %s in connection %s: %s",
-                message.id,
-                sender.id,
-                message.business_connection_id,
-                e,
-            )
-        else:
-            content_analyzed = True
-            content_suggestion = scanned.suggested_action
-            if scanned.author_entity is not None:
-                entity_uuid = scanned.author_entity.entity.uuid
+    async with scan_files.collect(
+        context, message, enabled=configuration.scanning_enabled
+    ) as files:
+        if has_text or files:
+            try:
+                scanned = await federation.scan_content(
+                    message_content.build_scan_input(message, False), author_entity, files=files
+                )
+            except FederationException as e:
+                log.warning(
+                    "Failed to scan business message %s from %s in connection %s: %s",
+                    message.id,
+                    sender.id,
+                    message.business_connection_id,
+                    e,
+                )
+            else:
+                content_analyzed = True
+                content_suggestion = scanned.suggested_action
+                if scanned.author_entity is not None:
+                    entity_uuid = scanned.author_entity.entity.uuid
 
     if not has_text or configuration.behavior is ScanningBehavior.STRICT:
         try:

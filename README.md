@@ -17,8 +17,8 @@ bot is designed to keep working, in a reduced form, even when no Federation serv
 - **Secretary Mode**: connects to a personal Telegram Business account to screen first-time contacts before they
   reach your inbox, independently of group protection.
 - **Privacy Mode**: a per-chat switch that minimizes what is published to Federation (no automatic entity
-  publishing, scan submissions carry only message content) while the features that need data to work still send the
-  minimum required.
+  publishing, scan submissions carry only message text, never images) while the features that need data to work
+  still send the minimum required.
 - **Operator tooling**: `/auth`, `/blacklist`, and `/link` let Federation operators manage entities and close
   assigned reports without leaving Telegram, using their own credentials rather than the bot's.
 - **Anonymous or authenticated**: the bot runs against a Federation server with or without its own access token;
@@ -205,6 +205,11 @@ and is chosen with `--database` or `SPB_DATABASE` instead (see
 The `federation` section is entirely optional. When it is absent, the bot starts and answers commands normally, but
 every feature that depends on Federation (scanning, join protection, reporting, entity lookups) reports itself
 unavailable rather than failing.
+
+The photo or image document of a message is submitted with its text (OFD 2.1 scanned files), so images without text
+are scanned as well, outside Privacy Mode; a server that cannot interpret an image ignores it, and one that publishes
+no file limits is sent none. Images are never named by URL (OFD 2.2 scanned file URLs), as the download URL of a
+Telegram file carries the bot's token.
 
 A Federation server may limit the rate of its requests (OFD 2.2). When it rejects a request with HTTP 429 or 503, the
 bot sends no further request as itself until the delay the server gave has elapsed, or, from a server that gives none,

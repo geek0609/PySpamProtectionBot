@@ -5,7 +5,7 @@ import inspect
 import logging
 import math
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import timedelta
 from os import PathLike
 from pathlib import Path
@@ -303,7 +303,11 @@ class FederationService:
         )
 
     async def scan_content(
-        self, content: ContentInput, entity: str | None, block_ads_trackers: bool = False
+        self,
+        content: ContentInput,
+        entity: str | None,
+        block_ads_trackers: bool = False,
+        files: Sequence[Path] = (),
     ) -> ScannedContent:
         """Scans content for spam, phishing, malware and other threats.
 
@@ -314,25 +318,28 @@ class FederationService:
                 default concerns. Only the ones the server supports are added, so a server without
                 these optional concerns still scans as usual. The server's concerns are cached
                 briefly, so this does not read them for every message.
+            files: The files of the content, such as the image of a message, which the server
+                scans with it (OFD 2.1) or ignores.
         """
         client = self._require_available()
+        scan_files = {0: list(files)} if files else None
         if not block_ads_trackers:
-            return await self._call("scan content", client.scan_content(content, entity))
+            return await self._call(
+                "scan content", client.scan_content(content, entity, files=scan_files)
+            )
 
         try:
-            information = await self._scan_capabilities.get_async(
-                "info",
-                lambda _: self._call("read scan capabilities", client.get_server_information()),
-            )
+            information = await self.scan_information()
         except FederationException as e:
             log.warning(
                 "Unable to read advertising and tracking scan capabilities; scanning with server "
                 "defaults: %s",
                 e,
             )
-            return await self._call("scan content", client.scan_content(content, entity))
+            return await self._call(
+                "scan content", client.scan_content(content, entity, files=scan_files)
+            )
 
-        assert information is not None
         concerns = list(information.default_concerns)
         concerns += [
             concern
@@ -340,8 +347,20 @@ class FederationService:
             if concern in information.concerns and concern not in concerns
         ]
         return await self._call(
-            "scan content", client.scan_content(content, entity, concerns=concerns or None)
+            "scan content",
+            client.scan_content(content, entity, concerns=concerns or None, files=scan_files),
         )
+
+    async def scan_information(self) -> ServerInformation:
+        """Returns what the server's scanner supports, its concerns and the limits on scanned
+        files, cached briefly so that it is not read for every message."""
+        client = self._require_available()
+        information = await self._scan_capabilities.get_async(
+            "info",
+            lambda _: self._call("read scan capabilities", client.get_server_information()),
+        )
+        assert information is not None
+        return information
 
     async def active_blacklists(self, entity: str) -> list[BlacklistRecord]:
         """Returns the blacklist records currently active against an entity."""

@@ -11,7 +11,7 @@ import respx
 from pyfederation.enums import SuggestedAction
 from pyrogram import Client
 from pyrogram.enums import ChatMemberStatus, ChatType
-from pyrogram.types import Chat, ChatMember, Message, User
+from pyrogram.types import Chat, ChatMember, Message, Photo, User
 from pyrogram.types.messages_and_media.message import Str
 
 from spb.classes.federation_service import FederationService
@@ -202,6 +202,76 @@ async def test_a_chat_chooses_whether_ads_and_trackers_are_assessed(
     await ScanningHandler().handle(context.with_update(Update(1, message=message(text=Str("hi")))))
 
     assert json.loads(scan.calls.last.request.content).get("concerns") == concerns
+
+
+def photo() -> Photo:
+    return Photo(
+        file_id="photo",
+        file_unique_id="unique-photo",
+        width=1280,
+        height=720,
+        file_size=4,
+        date=updates.DATE,
+    )
+
+
+@pytest.fixture
+def scans_files(
+    context: HandlerContext, respx_mock: respx.MockRouter, client: RecordingClient, tmp_path: Path
+) -> None:
+    # Replaces the server information the context fixture serves
+    respx_mock.get(f"{ENDPOINT}/info").respond(
+        json=payloads.server_information(max_scan_files=4, max_scan_file_size=10_485_760)
+    )
+    downloaded = tmp_path / "photo.jpg"
+    downloaded.write_bytes(b"JPEG")
+    client.respond("download_media", str(downloaded))
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("scans_files")
+async def test_an_image_is_scanned_with_its_message(
+    context: HandlerContext, client: RecordingClient, respx_mock: respx.MockRouter
+) -> None:
+    scan = scanned(respx_mock, None)
+
+    await ScanningHandler().handle(context.with_update(Update(1, message=message(photo=photo()))))
+
+    request = scan.calls.last.request
+    assert request.headers["Content-Type"].startswith("multipart/form-data")
+    assert b'name="file_0_0"; filename="photo.jpg"' in request.content
+    (download,) = client.named("download_media")
+    assert download.args[0] == "photo"
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("scans_files")
+async def test_privacy_mode_never_sends_images(
+    context: HandlerContext, client: RecordingClient, respx_mock: respx.MockRouter
+) -> None:
+    scan = scanned(respx_mock, None)
+    context.managers.chat_configurations.set_privacy_mode(GROUP.id, True)
+
+    await ScanningHandler().handle(context.with_update(Update(1, message=message(photo=photo()))))
+    await ScanningHandler().handle(
+        context.with_update(Update(2, message=message(photo=photo(), caption=Str("buy now"))))
+    )
+
+    assert scan.call_count == 1
+    assert scan.calls.last.request.headers["Content-Type"] == "application/json"
+    assert client.named("download_media") == []
+
+
+@pytest.mark.anyio
+async def test_an_image_is_not_sent_to_a_server_that_ignores_files(
+    context: HandlerContext, client: RecordingClient, respx_mock: respx.MockRouter
+) -> None:
+    scan = scanned(respx_mock, None)
+
+    await ScanningHandler().handle(context.with_update(Update(1, message=message(photo=photo()))))
+
+    assert not scan.called
+    assert client.named("download_media") == []
 
 
 @pytest.mark.anyio

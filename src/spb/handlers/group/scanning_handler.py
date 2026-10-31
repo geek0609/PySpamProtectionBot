@@ -30,6 +30,7 @@ from spb.utilities import (
     message_content,
     message_helper,
     moderation_actions,
+    scan_files,
 )
 
 log = logging.getLogger(__name__)
@@ -260,18 +261,23 @@ async def _scan_message_content(context: HandlerContext, message: Message) -> No
 async def _scan(
     context: HandlerContext, message: Message, configuration: ChatConfiguration
 ) -> ScannedContent | None:
-    """Submits the message content to Federation's scanner, or returns None when it failed."""
+    """Submits the message content, with its image outside Privacy Mode, to Federation's scanner,
+    or returns None when it failed or there was nothing to scan."""
     author_id = message.from_user.id
     privacy_mode = configuration.privacy_mode
-    try:
-        scanned = await context.federation.scan_content(
-            message_content.build_scan_input(message, privacy_mode),
-            None if privacy_mode else f"{author_id}@telegram.org",
-            configuration.block_ads_trackers,
-        )
-    except FederationException as e:
-        log.warning("Failed to scan message %s in chat %s: %s", message.id, message.chat.id, e)
-        return None
+    async with scan_files.collect(context, message, enabled=not privacy_mode) as files:
+        if not _has_text(message) and not files:
+            return None
+        try:
+            scanned = await context.federation.scan_content(
+                message_content.build_scan_input(message, privacy_mode),
+                None if privacy_mode else f"{author_id}@telegram.org",
+                configuration.block_ads_trackers,
+                files,
+            )
+        except FederationException as e:
+            log.warning("Failed to scan message %s in chat %s: %s", message.id, message.chat.id, e)
+            return None
 
     log.info(
         "Scanned message %s in chat %s from user %s: risk_score=%s, suggested_action=%s, "
@@ -332,13 +338,16 @@ def _should_scan(
     context: HandlerContext, message: Message, configuration: ChatConfiguration
 ) -> bool:
     """Whether the message is eligible for Federation scanning: a moderated group with scanning
-    enabled, and scannable text or a caption."""
-    content = message_content.content_to_scan(message)
-    return (
-        _should_moderate(context, message, configuration)
-        and content is not None
-        and bool(content.strip())
+    enabled, and scannable text or a caption, or an image outside Privacy Mode."""
+    return _should_moderate(context, message, configuration) and (
+        _has_text(message) or (not configuration.privacy_mode and scan_files.has_image(message))
     )
+
+
+def _has_text(message: Message) -> bool:
+    """Whether the message carries scannable text or a caption."""
+    content = message_content.content_to_scan(message)
+    return content is not None and bool(content.strip())
 
 
 def is_linked_channel_post(message: Message) -> bool:
