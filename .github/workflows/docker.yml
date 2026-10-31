@@ -31,6 +31,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          path: PySpamProtectionBot
+
+      # The Dockerfile takes PyFederation from a named build context, its dev branch checked out next
+      # to this one.
+      - name: Checkout PyFederation
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/PyFederation
+          ref: dev
+          path: PyFederation
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -62,7 +73,9 @@ jobs:
         id: push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: PySpamProtectionBot
+          file: PySpamProtectionBot/Dockerfile
+          build-contexts: pyfederation=PyFederation
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
