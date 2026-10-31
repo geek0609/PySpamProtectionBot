@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Follows the ongoing SpamProtectionBot 1.0.14 with PyFederation 2.2, and remains compatible with servers implementing
+OFD 2.0 and 2.1.
+
+### Added
+ - The photo or image document of a message is scanned with its text, within the file limits the Federation server
+   publishes, so images without text are scanned as well. Privacy Mode never sends images.
+ - Requests are held back while the Federation server limits them, for the delay it gives, or a wait that doubles
+   from one second up to five minutes.
+
+### Changed
+ - PyFederation 2.2 is installed from a checkout next to this repository until it is published.
+
 ## [2.0.0] - 2026-10-27
 
 This release follows version `2.0` of the OFD Specification and SpamProtectionBot 1.0.13 with PyFederation 2.0, it
