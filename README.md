@@ -64,8 +64,7 @@ bot, running it, and the options it accepts; the file it reads at startup is des
 
 ### Requirements
 
-- Python 3.13 or later, with PyFederation 2.2 checked out next to this repository. Not needed when running the
-  Docker image.
+- Python 3.13 or later. Not needed when running the Docker image.
 - A Telegram bot token issued by [@BotFather](https://t.me/BotFather).
 - A Telegram API ID and hash issued at [my.telegram.org](https://my.telegram.org). The bot connects to Telegram over
   MTProto, which needs both alongside the bot token.
@@ -75,14 +74,14 @@ bot, running it, and the options it accepts; the file it reads at startup is des
 
 ### Building from Source
 
-The project installs with pip, together with PyFederation from its checkout next to this one, and provides an `spb`
-command:
+The project installs with pip, which takes [PyFederation](https://pypi.org/project/pyfederation/) from PyPI, and
+provides an `spb` command:
 
 ```shell
-pip install ../PyFederation .
+pip install .
 ```
 
-`pip install ../PyFederation -e . --group dev` installs the development tools as well; `make check` then runs the
+`pip install -e . --group dev` installs the development tools as well; `make check` then runs the
 linter and type checks, and `make test` runs the test suite. Start the bot by pointing it at its configuration file
 and database:
 
@@ -98,11 +97,10 @@ session file the bot keeps next to the database (`database.session` beside `data
 ### Docker Usage
 
 The [Dockerfile](Dockerfile) installs the bot into a virtual environment and ships it on a minimal Python image. It
-reads its configuration from `/app/configuration.yml` and keeps its database and Telegram session under `/data`.
-PyFederation is taken from a named build context:
+reads its configuration from `/app/configuration.yml` and keeps its database and Telegram session under `/data`:
 
 ```shell
-docker build -t spam-protection-bot --build-context pyfederation=../PyFederation .
+docker build -t spam-protection-bot .
 docker run -d --name spam-protection-bot \
   -v "$(pwd)/configuration.yml:/app/configuration.yml:ro" \
   -v spb-data:/data \
